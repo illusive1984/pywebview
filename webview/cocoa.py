@@ -163,26 +163,6 @@ class BrowserView:
                 webbrowser.open(action.request().URL().absoluteString(), 2, True)
             return nil
 
-        # WKNavigationDelegate method, invoked when a navigation decision needs to be made
-        def webView_decidePolicyForNavigationAction_decisionHandler_(self, webview, action, handler):
-            # The event that might have triggered the navigation
-            event = AppKit.NSApp.currentEvent()
-
-            if not handler.__block_signature__:
-                handler.__block_signature__ = BrowserView.pyobjc_method_signature(b"v@i")
-
-            """ Disable back navigation on pressing the Delete key: """
-            # Check if the requested navigation action is Back/Forward
-            if action.navigationType() == getattr(WebKit, 'WKNavigationTypeBackForward', 2):
-                # Check if the event is a Delete key press (keyCode = 51)
-                if event and event.type() == AppKit.NSKeyDown and event.keyCode() == 51:
-                    # If so, ignore the request and return
-                    handler(getattr(WebKit, 'WKNavigationActionPolicyCancel', 0))
-                    return
-
-            # Normal navigation, allow
-            handler(getattr(WebKit, 'WKNavigationActionPolicyAllow', 1))
-
         # Show the webview when it finishes loading
         def webView_didFinishNavigation_(self, webview, nav):
             # Add the webview to the window if it's not yet the contentView
@@ -325,12 +305,15 @@ class BrowserView:
         else:
             self.loaded.set()
 
+        config = self.webkit.configuration()
+        config.preferences().setValue_forKey_(Foundation.NO, "backspaceKeyNavigationEnabled")
+
         if self.debug:
-            self.webkit.configuration().preferences().setValue_forKey_(Foundation.YES, "developerExtrasEnabled")
+            config.preferences().setValue_forKey_(Foundation.YES, "developerExtrasEnabled")
 
         if js_api:
             self.js_bridge = BrowserView.JSBridge.alloc().initWithObject_(js_api)
-            self.webkit.configuration().userContentController().addScriptMessageHandler_name_(self.js_bridge, "jsBridge")
+            config.userContentController().addScriptMessageHandler_name_(self.js_bridge, "jsBridge")
 
         if fullscreen:
             self.toggle_fullscreen()
